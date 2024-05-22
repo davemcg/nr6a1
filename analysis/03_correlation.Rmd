@@ -1,0 +1,209 @@
+---
+title: "Coexpression Gene Analysis of NR6A1"
+output:
+ html_document:
+  author: "David McGaughey"
+  date: "`r Sys.Date()`"
+  theme: flatly
+  toc: true
+  toc_float: true
+  code_folding: hide  
+ html_notebook:
+  author: "David McGaughey"
+  date: "`r Sys.Date()`"
+  theme: flatly
+  toc: true
+  toc_float: true
+  code_folding: hide
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  message = FALSE,  warning = FALSE,
+  collapse = TRUE,
+  fig.width = 12, fig.height = 8,
+  comment = "#>",
+  dpi=300
+)
+```
+# tldr
+NR6A1 is enriched for positive coexpression with coloboma associated genes in:
+  - fetal eyeIntegration eye data (very much)
+  - adult snRNA HRCA data (~0.05)
+  
+not enriched:
+  - snRNA fetal HRCA (weakly - ~0.07)
+  - adult eyeIntegration eye
+  - adult eyeIntegration gtex/body
+  - adult gtex body snRNA
+  
+# tldr2
+
+SALL4 keeps appearing as a top correlated genes with NR6A1
+
+# Explanation
+
+Gene coexpression analysis is the study of correlation between two genes across numerous tissues. The idea is that genes with potentially related function will have similar patterns across many tissues / samples.
+
+# Data sets
+1. Human Retina Cell Atlas (HRCA, from Rui Chen)
+  - snRNA seq
+  - made into "pseudobulk" by summing up cell counts to the cell type / sample level
+2. fetal HRCA (Rui Chen)
+  - same processing as above
+3. eyeIntegration adult eye
+  - bulk
+  - retina and rpe tissues, no AMD
+  - only the cultured primary cells or straight tissue (e.g. no iPSC or organoids)
+4. eyeIntegration fetal eye
+  - bulk
+  - same as above, just infant/fetal
+5. eyeIntegration curated GTEx body
+  - bulk
+6. GTEx v8 body
+  - snRNA prototype
+  - psuedobulked like 1,2
+  
+# How to understand
+Genes that are perfectly the same across samples have a correlation of 1. Perfectly different are -1. 
+
+# Gene set enrichment testing genes
+
+From Aman, Tiziana, Brian 2020 review. Tables 1 and 2 merged together. 
+
+
+
+```{r, eval = FALSE}
+source('src/adult_hrca_correlation.R')
+source('src/fetal_hrca_correlation.R')
+source('src/eiad_retina_rpe_correlation.R')
+source('src/eiad_body_correlation.R')
+source('src/gtex_v8_snRNA_correlation.R')
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+adult_hrca <- read_tsv('../data/hrca_adult_nr6a1_cor.tsv.gz') %>% mutate(Gene = Gene2) %>% filter(!is.na(Gene)) %>% mutate(rank = row_number()) %>% mutate(Set = 'Adult Eye', Source = 'HRCA (snRNA)')
+fetal_hrca <- read_tsv('../data/hrca_fetal_nr6a1_cor.tsv.gz') %>% mutate(Gene = Gene2) %>% filter(!is.na(Gene)) %>% mutate(rank = row_number()) %>% mutate(Set = 'Fetal Eye', Source = 'HRCA (snRNA)')
+eiad_eye_adult <- read_tsv('../data/eyeIntegration_adult_tissue_eye_nr6a1_cor.tsv.gz') %>% mutate(Gene = Gene2N) %>% mutate(Set = 'Adult Eye', Source = 'eyeIntegration (bulk)')
+eiad_eye_fetal <- read_tsv('../data/eyeIntegration_fetal_tissue_eye_nr6a1_cor.tsv.gz') %>% mutate(Gene = Gene2N) %>% mutate(Set = 'Fetal Eye', Source = 'eyeIntegration (bulk)')
+#eiad_body <- read_tsv('../data/eyeIntegration_body_nr6a1_cor.tsv.gz') %>% mutate(Gene = Gene2N) %>% mutate(Set = 'Adult Body', Source = 'eyeIntegration (bulk)')
+gtex_body <- read_tsv('../data/gtex_v8_snRNA_nr6a1_cor.tsv.gz') %>% mutate(Gene = Gene2) %>% mutate(Set = 'Adult Body', Source = 'GTEx V8 (snRNA)')
+```
+
+```{r, message = FALSE}
+gtex_body_files <- list.files('../data/', full.names = TRUE)
+gtex_body_files <- gtex_body_files[grepl("eyeIntegration_.*_nr6a1_cor\\.tsv\\.gz", gtex_body_files)]
+gtex_body_files <- gtex_body_files[grep("adult|fetal|body", gtex_body_files,invert = TRUE)] 
+eiad_gtex_tissue_cor <- purrr::map(gtex_body_files, read_tsv) %>% 
+  bind_rows() %>% 
+  mutate(Gene = Gene2N, Set = Tissue, Source = 'eyeIntegration/GTEx Body')
+```
+
+```{r, fig.width=10, fig.height=3}
+colo <- read_csv("https://raw.githubusercontent.com/davemcg/eyeMarkers/master/lists/george_brooks_coloboma_2020.csv")
+
+t_tester <- function(df){
+  colo_set <- df %>% mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma')) %>% 
+    filter(!is.na(Coloboma))
+  other_set <- df %>% mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma')) %>% 
+    filter(is.na(Coloboma))
+  broom::tidy(t.test((colo_set$correlation),(other_set$correlation)))
+}
+```
+
+```{r}
+t_tester(adult_hrca)
+
+adult_hrca %>% 
+  mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma'))  %>% 
+  ggplot(aes(x=correlation)) + 
+  geom_density() + 
+  geom_point(aes(x=correlation,y=0), 
+             data = . %>% filter(!is.na(Coloboma)), size = 1) +
+  ggrepel::geom_label_repel(aes(x=correlation, y=0, label = Gene),
+                            data = . %>% filter(!is.na(Coloboma)) %>% head(10),
+                            direction = 'y', max.overlaps = Inf) +
+  cowplot::theme_cowplot() + ylab('') +
+  ggtitle("HRCA Coloboma Gene Coexpression with NR6A1")
+
+adult_hrca %>% 
+    mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma Associated', TRUE ~ 'Remainder')) %>% 
+  ggplot(aes(x=Coloboma,y=correlation)) + 
+  geom_boxplot() + xlab("Gene Set") +
+  cowplot::theme_cowplot()
+```
+
+```{r, fig.width=10, fig.height=3}
+
+t_tester(fetal_hrca)
+
+fetal_hrca %>% 
+  mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma'))  %>% 
+  ggplot(aes(x=correlation)) + 
+  geom_density() + 
+  geom_point(aes(x=correlation,y=0), 
+             data = . %>% filter(!is.na(Coloboma)), size = 1) +
+  ggrepel::geom_label_repel(aes(x=correlation, y=0, label = Gene),
+                            data = . %>% filter(!is.na(Coloboma)) %>% head(10),
+                            direction = 'y', max.overlaps = Inf) +
+  cowplot::theme_cowplot() + ylab('')
+
+fetal_hrca %>% 
+    mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma Associated', TRUE ~ 'Remainder')) %>% 
+  ggplot(aes(x=Coloboma,y=correlation)) + 
+  geom_boxplot() + xlab("Gene Set") +
+  cowplot::theme_cowplot()
+```
+
+```{r, fig.width=10, fig.height=3}
+t_tester(eiad_eye_adult)
+eiad_eye_adult %>% 
+  mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma'))  %>% 
+  ggplot(aes(x=correlation)) + 
+  geom_density() + 
+  geom_point(aes(x=correlation,y=0), 
+             data = . %>% filter(!is.na(Coloboma)), size = 1) +
+  ggrepel::geom_label_repel(aes(x=correlation, y=0, label = Gene),
+                            data = . %>% filter(!is.na(Coloboma)) %>% head(10),
+                            direction = 'y', max.overlaps = Inf) +
+  cowplot::theme_cowplot() + ylab('')
+
+eiad_eye_adult %>% 
+    mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma Associated', TRUE ~ 'Remainder')) %>% 
+  ggplot(aes(x=Coloboma,y=correlation)) + 
+  geom_boxplot() + xlab("Gene Set") +
+  cowplot::theme_cowplot()
+```
+
+```{r, fig.width=10, fig.height=3}
+t_tester(eiad_eye_fetal)
+eiad_eye_fetal %>% 
+  mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma'))  %>% 
+  ggplot(aes(x=correlation)) + 
+  geom_density() + 
+  geom_point(aes(x=correlation,y=0), 
+             data = . %>% filter(!is.na(Coloboma)), size = 1) +
+  ggrepel::geom_label_repel(aes(x=correlation, y=0, label = Gene),
+                            data = . %>% filter(!is.na(Coloboma)) %>% head(10),
+                            direction = 'y', max.overlaps = Inf) +
+  cowplot::theme_cowplot() + ylab('')
+
+eiad_eye_fetal %>% 
+    mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma Associated', TRUE ~ 'Remainder')) %>% 
+  ggplot(aes(x=Coloboma,y=correlation)) + 
+  geom_boxplot() + xlab("Gene Set") +
+  cowplot::theme_cowplot()
+
+```
+
+
+
+
+```{r}
+t_tester(eiad_gtex_tissue_cor)
+```
+```{r}
+save.image("../data/03_correlation.image.Rdata")
+```

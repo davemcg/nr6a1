@@ -1,0 +1,217 @@
+---
+title: "NR6A1 in snRNA Datasets"
+output:
+ html_document:
+  author: "David McGaughey"
+  date: "`r Sys.Date()`"
+  theme: flatly
+  toc: true
+  toc_float: true
+  code_folding: hide  
+ html_notebook:
+  author: "David McGaughey"
+  date: "`r Sys.Date()`"
+  theme: flatly
+  toc: true
+  toc_float: true
+  code_folding: hide
+---
+
+# Three sources of data:
+Rui Chen's Human Retina Cell Atlas *and* fetal Human Retina Cell Atlas
+
+And GTEx's prototype single cell atlas.
+
+# Why not David's plae resource?
+Well, I'd love to another citation, but NR6A1 isn't well detected in single cell RNAseq (not shown why). All of the
+resources used here are single **nucleus** RNA-seq - which capture the RNA from the nucleus of the cell. 
+
+For some reason NR6A1 transcripts are fairly well represented in the nucleus, but are not captured well (perhaps counts too low?) in the full cell.
+
+# tldr
+Evidence of higher NR6A1 (in both fetal and adult retina datasets) in the horizontal cells (HC). 
+
+In the non-retina GTEx dataset, NR6A1 is a bit higher in epithelial cells. No evidence of NR6A1 in (adult) RPE, though.
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  message = FALSE,  warning = FALSE,
+  collapse = TRUE,
+  fig.width = 12, fig.height = 8,
+  comment = "#>",
+  dpi=300
+)
+```
+
+# Dataset
+
+snRNA h5ad retrieved from [here](https://cellxgene.cziscience.com/collections/4c6eaf5c-6d57-4c76-b1e9-60df8c655f1e) and [here](https://cellxgene.cziscience.com/collections/4832df54-d357-4d0f-b601-e924823b38b7) on 2024-05-15.
+
+Downloaded [adult](https://datasets.cellxgene.cziscience.com/89f6a640-0537-4fd1-bdf9-540db9dd0b7d.h5ad) and [fetal](https://datasets.cellxgene.cziscience.com/88444d73-7f55-4a62-bcfe-e929878c6c78.h5ad)
+
+Download the [GTEx v8 data](https://storage.googleapis.com/adult-gtex/single-cell/v9/snrna-seq-data/GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad) on 2024-05-16.
+
+# Methods
+
+The single nucleus data was aggregated (with the ADPBulk python package) to the cell type and sample level by *summing*
+the counts. This is also known as a "pseudobulk" process as it turns single cells into
+a data type with the rough properties of a bulk RNA-seq dataset.
+
+"pseudobulk" samples with lower overall counts (derived by hand inspecting) the overall
+distributions of overall expression were removed.
+
+The data was CPM scaled and log1p transformed for plotting.
+
+```{bash, eval = FALSE}
+mamba activate scvi1.0.4
+python src/adata_to_pseudobulk.py ~/data/chen_rca/chen_fetal_hrca_snRNA_88444d73-7f55-4a62-bcfe-e929878c6c78.h5ad donor_id,development_stage,majorclass data/chen_fetal_hrca.pb_raw.csv.gz
+
+python src/adata_to_pseudobulk.py ~/data/chen_rca/chen_adult_hrca_snRNA_89f6a640-0537-4fd1-bdf9-540db9dd0b7d.h5ad donor_id,majorclass data/chen_adult_hrca.pb_raw.csv.gz
+
+python src/adata_to_pseudobulk.py /Users/mcgaugheyd/data/gtex/GTEx_8_tissues_snRNAseq_atlas_071421.public_obs.h5ad  Sample\ ID,Tissue,Broad\ cell\ type data/gtex_v8_pb.csv.gz
+```
+
+
+```{r}
+library(tidyverse)
+pb <- data.table::fread("../data/chen_adult_hrca.pb_raw.csv.gz")
+pb_mat <- pb[,2:ncol(pb)] %>% as.matrix()
+row.names(pb_mat) <- pb %>% pull(1)
+pb_mat <- pb_mat[pb_mat %>% rowSums() %>% log1p() > 12,]
+
+
+pb_transform <- t(metamoRph::normalize_data(t(pb_mat), log1p = TRUE))
+
+```
+
+# Pull gene names
+```{r}
+conv_table <- AnnotationDbi::select(org.Hs.eg.db::org.Hs.eg.db, 
+                                    keys=colnames(pb),
+                                    columns=c("ENSEMBL","SYMBOL", "MAP","GENENAME", "ENTREZID"), keytype="ENSEMBL") 
+conv_table %>% head()
+```
+
+```{r}
+pb_long <- pb_transform %>% as_tibble(rownames = 'info') %>% separate(info, c("donor","class"), sep = '-majorclass\\.') %>% 
+  mutate(donor = gsub("donor_id\\.","",donor)) %>% 
+  pivot_longer(cols = starts_with("ENSG"))
+```
+
+```{r}
+
+pb_long %>% 
+  left_join(conv_table %>% group_by(ENSEMBL) %>% summarise(SYMBOL = paste(SYMBOL, collapse= ', ')), 
+            by = c("name" = "ENSEMBL")) %>% 
+  filter(SYMBOL == 'NR6A1') %>% 
+  ggplot(aes(x=class,y=(value))) + 
+  geom_boxplot() +
+  ggbeeswarm::geom_quasirandom() +
+  ylab("log1p(NR6A1)") +
+  cowplot::theme_cowplot() +
+  ggtitle("Pseudobulk Expression of NR6A1 in HRCA")
+
+```
+
+# fetal
+```{r, fig.width=20, fig.height=6}
+pb_fetal <- data.table::fread("../data/chen_fetal_hrca.pb_raw.csv.gz")
+pb_mat_fetal <- pb_fetal[,2:ncol(pb_fetal)] %>% as.matrix()
+row.names(pb_mat_fetal) <- pb_fetal %>% pull(1)
+# pb_mat %>% rowSums() %>% log1p() %>%  density() %>% plot()
+pb_mat_fetal <- pb_mat_fetal[pb_mat_fetal %>% rowSums() %>% log1p() > 12,]
+
+
+pb_transform_fetal <- t(metamoRph::normalize_data(t(pb_mat_fetal), log1p = TRUE))
+
+
+pb_long_fetal <- pb_transform_fetal %>% as_tibble(rownames = 'info') %>% separate(info, c("donor","class"), sep = '-majorclass\\.') %>% 
+  mutate(age = str_extract(donor, '\\d+th|\\d+st') %>% gsub('th|st','',.) %>% as.integer()) %>% 
+  pivot_longer(cols = starts_with("ENSG"))
+```
+
+
+```{r, fig.width=12, fig.height=6}
+pb_long_fetal %>% 
+  left_join(conv_table %>% group_by(ENSEMBL) %>% summarise(SYMBOL = paste(SYMBOL, collapse= ', ')), 
+            by = c("name" = "ENSEMBL")) %>% 
+  filter(SYMBOL == 'NR6A1') %>% 
+  ggplot(aes(x=class,y=(value))) + 
+  facet_wrap(~age) +
+  geom_boxplot() +
+  ggbeeswarm::geom_quasirandom() +
+  ylab("log1p(NR6A1)") +
+  cowplot::theme_cowplot() +
+  ggtitle("Pseudobulk Expression of NR6A1 in fetal HRCA (facet by age(weeks))") +
+  scale_x_discrete(guide = guide_axis(angle = 90))
+```
+
+```{r}
+pb_long_fetal %>% 
+  left_join(conv_table %>% group_by(ENSEMBL) %>% summarise(SYMBOL = paste(SYMBOL, collapse= ', ')), 
+            by = c("name" = "ENSEMBL")) %>% 
+  filter(SYMBOL == 'NR6A1') %>% 
+  ggplot(aes(x=class,y=(value), color = age)) + 
+  geom_boxplot() +
+  ggbeeswarm::geom_quasirandom() +
+  ylab("log1p(NR6A1)") +
+  cowplot::theme_cowplot() +
+  ggtitle("Pseudobulk Expression of NR6A1 in fetal HRCA") +
+  scale_x_discrete(guide = guide_axis(angle = 90)) +
+  labs(color='age(weeks)') +
+  scale_color_viridis_c()
+```
+# gtex
+also snRNA
+
+```{r}
+pb_gtex <- data.table::fread("../data/gtex_v8_pb.csv.gz")
+pb_mat_gtex <- pb_gtex[,2:ncol(pb_gtex)] %>% as.matrix()
+row.names(pb_mat_gtex) <- pb_gtex %>% pull(1)
+# pb_mat %>% rowSums() %>% log1p() %>%  density() %>% plot()
+pb_mat_gtex <- pb_mat_gtex[pb_mat_gtex %>% rowSums() %>% log1p() > 9,]
+
+
+pb_transform_gtex <- t(metamoRph::normalize_data(t(pb_mat_gtex), log1p = TRUE))
+
+
+pb_long_gtex <- pb_transform_gtex %>% 
+  as_tibble(rownames = 'info') %>% 
+  mutate(class = str_extract(info, "Broad cell type\\.\\w+") %>% gsub("Broad cell type\\.", "",.),
+         tissue = str_extract(info, "Tissue.\\w+") %>% gsub("Tissue.", "",.)) %>% 
+  pivot_longer(cols = -c(info, class, tissue))
+```
+
+```{r, fig.width=6, fig.height=6}
+pb_long_gtex %>% 
+  filter(name == 'NR6A1') %>% 
+  ggplot(aes(x=class,y=value)) + 
+  geom_boxplot() +
+  ggbeeswarm::geom_quasirandom(aes(color=tissue)) +
+  ylab("log1p(NR6A1)") +
+  cowplot::theme_cowplot() +
+  ggtitle("Pseudobulk Expression of NR6A1 in GTEx") +
+  scale_color_manual(values = pals::polychrome() %>% unname()) +
+  scale_x_discrete(guide = guide_axis(angle = 90))
+```
+
+
+```{r, fig.width=10, fig.height=6}
+pb_long_gtex %>% 
+  filter(name == 'NR6A1') %>% 
+  ggplot(aes(x=interaction(tissue,class),y=value)) + 
+  geom_boxplot() +
+  ggbeeswarm::geom_quasirandom(aes(color=tissue)) +
+  ylab("log1p(NR6A1)") +
+  cowplot::theme_cowplot() +
+  ggtitle("Pseudobulk Expression of NR6A1 in GTEx") +
+  scale_color_manual(values = pals::polychrome() %>% unname()) +
+  scale_x_discrete(guide = guide_axis(angle = 90))
+
+```
+
+# session
+```{r}
+save.image('../data/01_image.Rdata')
+devtools::session_info()
+```
