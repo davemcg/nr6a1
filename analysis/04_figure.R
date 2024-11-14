@@ -46,8 +46,10 @@ cor <- eiad_eye_fetal %>%
 
 top <- cowplot::plot_grid(eiad_plot, hrca, cor, align = 'hv', nrow =1, labels = 'auto')
 
+svg('nr6a_expression_figure.svg', width = 10, height = 7)
 cowplot::plot_grid(top, 
                    NULL,
                    body_plot, 
-                   nrow = 3, rel_heights = c(1,0.05,0.8), labels = c('','','d'))
+                   nrow = 3, rel_heights = c(1,0,0.8), labels = c('','','d'))
+dev.off()
 
