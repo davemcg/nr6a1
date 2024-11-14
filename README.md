@@ -1,5 +1,7 @@
 # nr6a1
 
+Code for (sc)RNA-seq and MSA figures in Brooks Lab "Variants in NR6A1 cause a novel oculo-vertebral-renal (OVR) syndrome" paper
+
 ## datasets
 
 | type | resource | notes |
