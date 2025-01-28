@@ -1,5 +1,8 @@
+# 2025 01 28
+# update for resubmission
 library(tidyverse)
 load('data/01_image.Rdata')
+load('data/02_fetal_plot.Rdata')
 load('data/02_eyeIntegration.files.Rdata')
 load('data/03_correlation.image.Rdata')
 body_plot <- body_data %>% 
@@ -44,12 +47,15 @@ cor <- eiad_eye_fetal %>%
   xlab("Correlation of NR6A1\nwith eyeIntegration Fetal\nRetina and RPE") +
   cowplot::theme_cowplot() + ylab('') 
 
-top <- cowplot::plot_grid(eiad_plot, hrca, cor, align = 'hv', nrow =1, labels = 'auto')
+top <- cowplot::plot_grid(fetal_plot, hrca, cor, nrow =1, labels = 'auto', rel_widths = c(1.3,0.9,1))
 
-svg('nr6a_expression_figure.svg', width = 10, height = 7)
+svg('nr6a_expression_figure.20250128.svg', width = 10, height = 7)
 cowplot::plot_grid(top, 
                    NULL,
                    body_plot, 
-                   nrow = 3, rel_heights = c(1,0,0.8), labels = c('','','d'))
+                   nrow = 3, rel_heights = c(1,-0.35,0.8), 
+                   align = 'h',
+                   #rel_widths = c(1,1,1),
+                   labels = c('','','d'), label_size = 12)
 dev.off()
 

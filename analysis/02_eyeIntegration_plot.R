@@ -12,7 +12,7 @@ gene_counts_long <- gene_cpm_mat %>%
 gene_counts_long <- left_join(gene_counts_long,
                               metadata %>%
                                 select(sample_accession, Tissue, Sub_Tissue, Perturbation,
-                                       Source, Age, Sex_ML, study_title) %>%
+                                       Source, Age, Age_Years, Age_Days, Sex_ML, study_title) %>%
                                 unique(),
                               by = 'sample_accession')
 plot_data <- gene_counts_long %>%
@@ -68,4 +68,45 @@ svg(filename = '~/git/nr6a1/eyeintegration_NR6A1.svg', height = 20, width = 10)
 plot
 dev.off()
 
-save(plot_data, body_data, eiad_data, plot, file = 'data/02_eyeIntegration.files.Rdata')
+save(plot_data, body_data, eiad_data, plot, gene_counts_long, file = 'data/02_eyeIntegration.files.20241203.Rdata')
+
+
+
+load('data/02_eyeIntegration.files.20241203.Rdata')
+
+## fetal only ##
+fetal_plot_data <- gene_counts_long %>%
+  #filter(Tissue %in% c("Cornea","RPE","Retina","Liver","Kidney")) %>%
+  filter(Source %in% c("ESC","iPSC","Native","Organoid"),
+         Age %in% c("Fetal","Infant")) %>% 
+  mutate(ID = paste(Tissue, Source, Age, sep = ' - ')) %>%
+  filter(!grepl("AMD","Perturbation")) %>% 
+  mutate(gene_id = gsub(" \\(.*","",Gene)) %>% 
+  filter(gene_id %in% "NR6A1")
+
+fetal_eiad_data <- fetal_plot_data %>% filter(!grepl("GTEx",study_title),
+                                  !Tissue %in% c("EyeLid"),
+                                  !grepl("AMD", Perturbation))
+
+
+fetal_plot <- fetal_eiad_data %>% 
+  filter(Tissue == 'Retina') %>% 
+  mutate(Stage = case_when(as.integer(Age_Days) < 80 ~ 'One',
+                           TRUE ~ 'Two')) %>% 
+  mutate(Paper = case_when(study_title == "A gene expression study of the developing human eye" ~ "Mellough et al.",
+                           study_title == "The Dynamic Epigenetic Landscape of the Retina During Development, Reprogramming, and Tumorigenesis [RNA-Seq_Hs]" ~ "Aldiri et al.",
+                           study_title == "Molecular anatomy of the developing human retina" ~ "Hoshino et al."
+  )) %>% 
+  mutate(Age_Days = as.integer(Age_Days)) %>% 
+  ggplot(aes(x=Age_Days,y=log2(CPM+1), color = Paper)) +
+  xlab("Age (Days Post Conception)") +
+  geom_point() + cowplot::theme_cowplot() + 
+  ggsci::scale_color_aaas() +
+  geom_smooth(method = lm, aes(group = interaction(Stage, Paper)), se = FALSE) + 
+  annotate('rect', xmin=35, xmax=42, ymin=2, ymax=6, alpha=.2, fill='blueviolet') + 
+  annotate(geom = 'text', x=35, y=6.15, label="Human Optic Fissure Closure", color = 'blueviolet', hjust =0 ) #+ facet_wrap(~Sex_ML)
+save(fetal_plot, fetal_eiad_data, file = '02_fetal_plot.Rdata')
+#svg(filename = '~/git/nr6a1/eyeintegration_NR6A1_fetal_retina.v02.svg', height = 2.5, width = 7)
+#fetal_plot
+#dev.off()
+

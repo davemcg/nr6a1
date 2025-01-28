@@ -12,6 +12,7 @@ parser.add_argument("out_table")
 args = parser.parse_args()
 
 adata = sc.read_h5ad(args.h5ad) 
+adata.raw = adata
 
 the_cats = args.category.split(',')
 

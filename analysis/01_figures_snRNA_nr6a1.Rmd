@@ -130,7 +130,7 @@ pb_long_fetal <- pb_transform_fetal %>% as_tibble(rownames = 'info') %>% separat
   pivot_longer(cols = starts_with("ENSG"))
 ```
 
-
+# Facet Age, X axis is tissue
 ```{r, fig.width=12, fig.height=6}
 pb_long_fetal %>% 
   left_join(conv_table %>% group_by(ENSEMBL) %>% summarise(SYMBOL = paste(SYMBOL, collapse= ', ')), 
@@ -144,6 +144,23 @@ pb_long_fetal %>%
   cowplot::theme_cowplot() +
   ggtitle("Pseudobulk Expression of NR6A1 in fetal HRCA (facet by age(weeks))") +
   scale_x_discrete(guide = guide_axis(angle = 90))
+```
+
+# Facet tissue, x axis is age
+```{r, fig.width=12, fig.height=6}
+pb_long_fetal %>% 
+  left_join(conv_table %>% group_by(ENSEMBL) %>% summarise(SYMBOL = paste(SYMBOL, collapse= ', ')), 
+            by = c("name" = "ENSEMBL")) %>% 
+  filter(SYMBOL == 'NR6A1') %>% 
+  mutate(age = age * 7) %>% 
+  ggplot(aes(x=age,y=(value))) + 
+  facet_wrap(~class) +
+  geom_boxplot(aes(group = age)) +
+  ggbeeswarm::geom_quasirandom() +
+  ylab("log1p (NR6A1 counts)") +
+  cowplot::theme_cowplot() +
+  xlab("age (days)") +
+  ggtitle("Pseudobulk Expression of NR6A1 in fetal HRCA") 
 ```
 
 ```{r}
@@ -212,6 +229,6 @@ pb_long_gtex %>%
 
 # session
 ```{r}
-save.image('../data/01_image.Rdata')
+save.image('../data/01_image.20241202.Rdata')
 devtools::session_info()
 ```

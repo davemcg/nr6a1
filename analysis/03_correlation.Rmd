@@ -38,9 +38,6 @@ not enriched:
   - adult eyeIntegration gtex/body
   - adult gtex body snRNA
   
-# tldr2
-
-SALL4 keeps appearing as a top correlated genes with NR6A1
 
 # Explanation
 
@@ -71,7 +68,6 @@ Genes that are perfectly the same across samples have a correlation of 1. Perfec
 # Gene set enrichment testing genes
 
 From Aman, Tiziana, Brian 2020 review. Tables 1 and 2 merged together. 
-
 
 
 ```{r, eval = FALSE}
@@ -205,5 +201,5 @@ eiad_eye_fetal %>%
 t_tester(eiad_gtex_tissue_cor)
 ```
 ```{r}
-save.image("../data/03_correlation.image.Rdata")
+#save.image("../data/03_correlation.image.Rdata")
 ```
