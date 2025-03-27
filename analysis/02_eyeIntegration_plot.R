@@ -85,8 +85,8 @@ fetal_plot_data <- gene_counts_long %>%
   filter(gene_id %in% "NR6A1")
 
 fetal_eiad_data <- fetal_plot_data %>% filter(!grepl("GTEx",study_title),
-                                  !Tissue %in% c("EyeLid"),
-                                  !grepl("AMD", Perturbation))
+                                              !Tissue %in% c("EyeLid"),
+                                              !grepl("AMD", Perturbation))
 
 
 fetal_plot <- fetal_eiad_data %>% 
@@ -98,14 +98,23 @@ fetal_plot <- fetal_eiad_data %>%
                            study_title == "Molecular anatomy of the developing human retina" ~ "Hoshino et al."
   )) %>% 
   mutate(Age_Days = as.integer(Age_Days)) %>% 
-  ggplot(aes(x=Age_Days,y=log2(CPM+1), color = Paper)) +
-  xlab("Age (Days Post Conception)") +
+  ggplot(aes(x=Age_Days,y=log1p(CPM), color = Paper)) +
+  ylab("log1p(bulk\nNR6A1)") +
+  xlab("Age (Days\nPost Conception)") +
   geom_point() + cowplot::theme_cowplot() + 
   ggsci::scale_color_aaas() +
   geom_smooth(method = lm, aes(group = interaction(Stage, Paper)), se = FALSE) + 
-  annotate('rect', xmin=35, xmax=42, ymin=2, ymax=6, alpha=.2, fill='blueviolet') + 
-  annotate(geom = 'text', x=35, y=6.15, label="Human Optic Fissure Closure", color = 'blueviolet', hjust =0 ) #+ facet_wrap(~Sex_ML)
-save(fetal_plot, fetal_eiad_data, file = '02_fetal_plot.Rdata')
+  geom_text(data = . %>% 
+                              filter(Age_Days > 110) %>% 
+                              group_by(Paper) %>% 
+                              summarise(CPM = mean(CPM),
+                                        Age_Days = max(Age_Days) + 30),
+                            aes(label = Paper)) +
+  annotate('rect', xmin=35, xmax=42, ymin=1.3, ymax=6, alpha=.2, fill='blueviolet') + 
+  annotate(geom = 'text', x=35, y=5.15, label="Human Optic\nFissure Closure", color = 'blueviolet', hjust =0 )  +
+  theme(legend.position="none") +
+  coord_cartesian(clip = "off") + scale_x_continuous(limits = c(30,200))
+save(fetal_plot, fetal_eiad_data, file = 'data/02_fetal_plot.Rdata')
 #svg(filename = '~/git/nr6a1/eyeintegration_NR6A1_fetal_retina.v02.svg', height = 2.5, width = 7)
 #fetal_plot
 #dev.off()
