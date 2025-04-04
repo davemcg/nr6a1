@@ -42,6 +42,14 @@ hrca <- pb_long %>%
   ggplot(aes(x=class,y=(value))) + 
   geom_boxplot(outlier.colour = NA) +
   ggbeeswarm::geom_quasirandom(size = 0.5) +
+  geom_text(aes(label = Count),data = .  %>% group_by(class) %>% summarise(Count = n()) %>% 
+              mutate(value = rep(9,10))) +
+  geom_text(aes(label = Mean),data = .  %>% group_by(class) %>% summarise(Mean = mean(value) %>% 
+                                                                            round(., digits = 1)) %>% 
+              mutate(value = rep(8.5,10))) +
+  geom_text(aes(label = Median),data = .  %>% group_by(class) %>% summarise(Median = median(value) %>% 
+                                                                              round(., digits = 1)) %>% 
+              mutate(value = rep(8,10))) +
   ylab("log1p(snRNA\nNR6A1)") + xlab("HRCA Pseudobulk Cell Types") +
   scale_x_discrete(guide = guide_axis(angle = 90)) + 
   cowplot::theme_cowplot() 
@@ -54,7 +62,7 @@ cor <- eiad_eye_fetal %>%
              data = . %>% filter(!is.na(Coloboma)), size = 1) +
   ggrepel::geom_label_repel(aes(x=correlation, y=0, label = Gene),
                             data = . %>% filter(!is.na(Coloboma)) %>% head(10),
-                            direction = 'y', max.overlaps = Inf) +
+                            direction = 'y', max.overlaps = Inf, force = 100) +
   xlab("Correlation of gene \nexpression with NR6A1 across\nFetal Retina and RPE") +
   cowplot::theme_cowplot() + ylab('') 
 
@@ -62,7 +70,8 @@ eiad_eye_fetal %>%
   mutate(Coloboma = case_when(Gene %in% colo$Gene ~ 'Coloboma')) %>% 
   select(-Gene2N) %>% 
   write_csv("nr6a1_correlation_table.csv")
-top <- cowplot::plot_grid(eiad_plot, fetal_plot, cor + ylab("density"), nrow =1, labels = 'auto', rel_widths = c(0.8,1.3,1.1))
+top <- cowplot::plot_grid(eiad_plot, fetal_plot, cor + ylab("density"), nrow =1, 
+                          labels = 'auto', rel_widths = c(0.9,1.2,1.1))
 
 # svg('nr6a_expression_figure.20250128.svg', width = 10, height = 7)
 # cowplot::plot_grid(top, 
@@ -75,20 +84,20 @@ top <- cowplot::plot_grid(eiad_plot, fetal_plot, cor + ylab("density"), nrow =1,
 # dev.off()
 
 
-pdf('nr6a_expression_figure.20250327.01.pdf', width = 10, height = 7)
-cowplot::plot_grid(top, 
+pdf('nr6a_expression_figure.20250402.01.pdf', width = 16, height = 9)
+cowplot::plot_grid(top,
                    NULL,
-                   body_plot, 
-                   nrow = 3, rel_heights = c(0.9,-0.3,0.8), 
+                   body_plot,
+                   nrow = 3, rel_heights = c(0.9,-0.3,0.8),
                    align = 'h',
                    #rel_widths = c(1,1,1),
-                   labels = c('','','d'), label_size = 12)
+                   labels = c('','','d'), label_size = 11.5)
 dev.off()
 
 # data table out
 
 
 
-#pdf("nr6a_single_cell_supplemental_expression_figure.20250207.pdf", width = 4, height = 3)
+# pdf("nr6a_single_cell_supplemental_expression_figure.20250402.pdf", width = 4, height = 3)
 # hrca
 # dev.off()

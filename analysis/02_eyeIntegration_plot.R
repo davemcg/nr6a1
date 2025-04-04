@@ -97,6 +97,7 @@ fetal_plot <- fetal_eiad_data %>%
                            study_title == "The Dynamic Epigenetic Landscape of the Retina During Development, Reprogramming, and Tumorigenesis [RNA-Seq_Hs]" ~ "Aldiri et al.",
                            study_title == "Molecular anatomy of the developing human retina" ~ "Hoshino et al."
   )) %>% 
+  filter(!grepl("Aldiri", Paper)) %>% 
   mutate(Age_Days = as.integer(Age_Days)) %>% 
   ggplot(aes(x=Age_Days,y=log1p(CPM), color = Paper)) +
   ylab("log1p(bulk\nNR6A1)") +
